@@ -133,42 +133,99 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
     VSpace(50)
 
     st.subheader("Feature importance")
-    # 获取 AutoGluon 模型的底层估计器
+    import os
+    import joblib
+
+    # 尝试多种方式获取底层 模型
+    model_estimator = None
     try:
-        # 对于 LightGBM 模型
-        model_obj = predictor._trainer.load_model(best_model)
-        if hasattr(model_obj, 'model'):
-            model_estimator = model_obj.model
-        else:
-            model_estimator = model_obj
+        # 方法 1: 直接加载底层模型文件 (绕过 AutoGluon 包装器)
+        # 路径基于目录结构: ./DKD_model_WEB/models/LightGBM_BAG_L1/T3_FULL/S1F1/model.pkl
+        direct_model_path = os.path.join("./DKD_model_WEB", "models", "LightGBM_BAG_L1", "T3_FULL", "S1F1", "model.pkl")
         
+        if os.path.exists(direct_model_path):
+            loaded_obj = joblib.load(direct_model_path)
+            # AutoGluon 的模型包装器通常把真实模型放在 .model 属性中
+            if hasattr(loaded_obj, 'model'):
+                model_estimator = loaded_obj.model
+            else:
+                model_estimator = loaded_obj
+
+        # 方法 2: 如果文件加载失败，尝试通过 predictor 获取
+        if model_estimator is None:
+            model_obj = predictor._trainer.load_model(best_model)
+            # 检查是否为 Bagged 模型，尝试提取第一个 fold
+            if hasattr(model_obj, 'models') and model_obj.models:
+                sub_model_name = model_obj.models[0]
+                sub_model_obj = predictor._trainer.load_model(sub_model_name)
+                if hasattr(sub_model_obj, 'model'):
+                    model_estimator = sub_model_obj.model
+            # 普通模型
+            elif hasattr(model_obj, 'model'):
+                model_estimator = model_obj.model
+        
+        if model_estimator is None:
+             raise ValueError("Could not extract underlying LightGBM booster.")
+
+        # 创建解释器
         explainer = shap.TreeExplainer(model_estimator)
         shap_values = explainer.shap_values(features.values)
-        # 对于二分类，取正类的 SHAP 值
-        if isinstance(shap_values, list):
-            shap_values = shap_values[1]
+        
+        # 对于二分类，LightGBM 可能返回列表 [class0, class1] 或 单个数组
+        # if isinstance(shap_values, list):
+        shap_values = shap_values[0]
+            
     except Exception as e:
         st.error(f"SHAP explanation failed: {str(e)}")
         shap_values = None
 
     if shap_values is not None:
-        fig, ax = plt.subplots(figsize=(5, 2.5))
         # 处理 expected_value
         if isinstance(explainer.expected_value, list):
             base_val = explainer.expected_value[1]
         else:
             base_val = explainer.expected_value
+
+        # 1. Waterfall Plot
+        # st.markdown("**1. Waterfall Plot**")
+        # try:
+        #     fig_waterfall = plt.figure(figsize=(6, 3)) 
+        #     shap_exp = shap.Explanation(
+        #         values=shap_values[0] if len(shap_values.shape) > 1 else shap_values,
+        #         base_values=base_val,
+        #         data=features.values[0],
+        #         feature_names=features.columns.tolist()
+        #     )
+        #     shap.plots.waterfall(shap_exp, max_display=6, show=False)
             
-        shap.waterfall_plot(
-            shap.Explanation(
-                values=shap_values[0] if len(shap_values.shape) > 1 else shap_values,
-                base_values=base_val,
-                data=features.values[0],
-                feature_names=features.columns.tolist()
-            ) 
-        )
-        plt.savefig("shap_waterfall_plot.png", bbox_inches='tight', dpi=300)
-        plt.close(fig)
-        st.image("shap_waterfall_plot.png", use_container_width=True)
+        #     # 样式调整
+        #     plt.tick_params(axis='x', labelsize=12)
+        #     plt.tick_params(axis='y', labelsize=12)
+        #     plt.savefig("shap_waterfall_plot.png", bbox_inches='tight', dpi=300)
+        #     plt.close(fig_waterfall)
+        #     st.image("shap_waterfall_plot.png", use_container_width=True)
+            
+        # except Exception as e:
+        #     st.error(f"Waterfall plot failed: {str(e)}")
+
+        # 2. Force Plot
+        st.markdown("**Force Plot**")
+        try:
+            # Force Plot 需要 matplotlib=True
+            fig_force = plt.figure()
+            shap.plots.force(
+                base_val,
+                shap_values[0] if len(shap_values.shape) > 1 else shap_values,
+                features,
+                matplotlib=True,
+                plot_cmap="viridis",
+                show=False
+            )
+            plt.savefig("shap_force_plot.png", bbox_inches='tight', dpi=300)
+            plt.close(fig_force)
+            st.image("shap_force_plot.png", use_container_width=True)
+            
+        except Exception as e:
+            st.error(f"Force plot failed: {str(e)}")
 
 
