@@ -201,9 +201,9 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
         #     # 样式调整
         #     plt.tick_params(axis='x', labelsize=12)
         #     plt.tick_params(axis='y', labelsize=12)
-        #     plt.savefig("shap_waterfall_plot.png", bbox_inches='tight', dpi=300)
+        #     plt.savefig("shap_waterfall_plot.png", bbox_inches='tight')#, dpi=300)
         #     plt.close(fig_waterfall)
-        #     st.image("shap_waterfall_plot.png", use_container_width=True)
+        #     st.image("shap_waterfall_plot.png", use_column_width=True)
             
         # except Exception as e:
         #     st.error(f"Waterfall plot failed: {str(e)}")
@@ -221,9 +221,9 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
                 plot_cmap="viridis",
                 show=False
             )
-            plt.savefig("shap_force_plot.png", bbox_inches='tight', dpi=300)
+            plt.savefig("shap_force_plot.png", bbox_inches='tight')#, dpi=300)
             plt.close(fig_force)
-            st.image("shap_force_plot.png", use_container_width=True)
+            st.image("shap_force_plot.png", use_column_width=True)
             
         except Exception as e:
             st.error(f"Force plot failed: {str(e)}")
