@@ -91,7 +91,7 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
     
     VSpace(20)
     # Set figure size
-    plt.figure(figsize=(4, 1))  # 设置图形大小
+    plt.figure(figsize=(8, 1))  # 设置图形大小
     plt.rc('ytick', labelsize=8) # 设置所有Y轴刻度的字体大小
     plt.rc('xtick', labelsize=8) # 设置所有X轴刻度的字体大小
     # Create bar chart
