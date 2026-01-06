@@ -73,7 +73,7 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
     # Predict the class and probabilities using AutoGluon
     predicted_proba_df = predictor.predict_proba(features, model=best_model)
     predicted_proba = predicted_proba_df.values[0]  # [prob_class_0, prob_class_1]
-    predicted_class = predictor.predict(features, model=best_model).values[0]  # 预测结果
+    predicted_class = predictor.predict(features, model=best_model).values[0].astype(int)  # 预测结果
 
     # Display the prediction results
     st.write(f"**Predicted Class (0 = Non-DKD, 1 = DKD):** {predicted_class}")  # 显示预测类别
