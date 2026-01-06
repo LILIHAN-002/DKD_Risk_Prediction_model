@@ -100,7 +100,7 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
                     height=0.6, edgecolor="black", color=['#81abd3','#fcd6d3'])  # 绘制水平条形图
 
     # Add title and labels, set font bold and increase font size
-    plt.title("Prediction Probability for DKD", fontsize=12, fontweight='bold')  # 添加图表标题，并设置字体大小和加粗
+    plt.title("Prediction Probability for DKD", fontsize=9, fontweight='bold')  # 添加图表标题，并设置字体大小和加粗
     plt.xlabel("Probability", fontsize=7 )  # 添加X轴标签，并设置字体大小和加粗
 
     # Add probability text labels, adjust position to avoid overlap, set font bold
