@@ -26,8 +26,10 @@ Gender_options = {
     '1': 'Male'  
 }
 Inj_Freq_options = {
-    '0': 'No Insulin',  
-    '1': 'With Insulin'  
+    '0': 'No Insulin Therapy',
+    '1': '1 injection/day',
+    '2': '2 injections/day',
+    '3': '≥ 3 injections/day' 
 }
 
 # Streamlit UI
