@@ -219,6 +219,7 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
                 base_val,
                 shap_values[0] if len(shap_values.shape) > 1 else shap_values,
                 features,
+                link="logit",
                 matplotlib=True,
                 plot_cmap="viridis",
                 show=False
