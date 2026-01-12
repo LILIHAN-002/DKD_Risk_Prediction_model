@@ -138,97 +138,175 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
     import os
     import joblib
 
-    # 尝试多种方式获取底层 模型
-    model_estimator = None
+    # ================= 修改开始 =================
     try:
-        # 方法 1: 直接加载底层模型文件 (绕过 AutoGluon 包装器)
-        # 路径基于目录结构: ./DKD_model_WEB/models/LightGBM_BAG_L1/T3_FULL/S1F1/model.pkl
-        direct_model_path = os.path.join("./DKD_model_WEB", "models", "LightGBM_BAG_L1", "T3_FULL", "S1F1", "model.pkl")
+        # 1. 获取具体的底层模型名称 (Sub-model name)
+        # 因为 best_model 是 Bagged (集成) 模型，我们需要找到其中一个具体的折叠(Fold)模型来做解释
+        model_obj = predictor._trainer.load_model(best_model)
         
-        if os.path.exists(direct_model_path):
-            loaded_obj = joblib.load(direct_model_path)
-            # AutoGluon 的模型包装器通常把真实模型放在 .model 属性中
-            if hasattr(loaded_obj, 'model'):
-                model_estimator = loaded_obj.model
-            else:
-                model_estimator = loaded_obj
-
-        # 方法 2: 如果文件加载失败，尝试通过 predictor 获取
-        if model_estimator is None:
-            model_obj = predictor._trainer.load_model(best_model)
-            # 检查是否为 Bagged 模型，尝试提取第一个 fold
-            if hasattr(model_obj, 'models') and model_obj.models:
-                sub_model_name = model_obj.models[0]
-                sub_model_obj = predictor._trainer.load_model(sub_model_name)
-                if hasattr(sub_model_obj, 'model'):
-                    model_estimator = sub_model_obj.model
-            # 普通模型
-            elif hasattr(model_obj, 'model'):
-                model_estimator = model_obj.model
-        
-        if model_estimator is None:
-             raise ValueError("Could not extract underlying LightGBM booster.")
-
-        # 创建解释器
-        explainer = shap.TreeExplainer(model_estimator)
-        shap_values = explainer.shap_values(features.values)
-        
-        # 对于二分类，LightGBM 可能返回列表 [class0, class1] 或 单个数组
-        # if isinstance(shap_values, list):
-        shap_values = shap_values[0]
+        # 获取第一个模型的名称 (例如 LightGBM_BAG_L1/T3_FULL_S1F1)
+        if hasattr(model_obj, 'models') and model_obj.models:
+            sub_model_name = model_obj.models[0]
+        else:
+            sub_model_name = best_model
             
-    except Exception as e:
-        st.error(f"SHAP explanation failed: {str(e)}")
-        shap_values = None
+        # 2. 关键步骤：转换特征 (Transform Features)
+        # 将人类可读的 Streamlit 输入转换为 LightGBM 需要的数值矩阵
+        X_transformed = predictor.transform_features(features, model=sub_model_name)
+        
+        # 3. 加载底层的 LightGBM Booster
+        sub_model_obj = predictor._trainer.load_model(sub_model_name)
+        model_estimator = sub_model_obj.model  # 这是底层的 LightGBM Booster
 
-    if shap_values is not None:
-        # 处理 expected_value
-        if isinstance(explainer.expected_value, list):
+        # 4. 计算 SHAP 值
+        explainer = shap.TreeExplainer(model_estimator)
+        # 注意：这里传入的是转换后的 X_transformed
+        shap_values_raw = explainer.shap_values(X_transformed)
+
+        # 5. 处理 SHAP 返回值的格式 (二分类问题)
+        # LightGBM 二分类通常返回 list [class0_shap, class1_shap] 或者 单个 array
+        if isinstance(shap_values_raw, list):
+            # 我们通常关注 Class 1 (DKD 发生) 的风险，所以取索引 [1]
+            # 如果之前的代码是 [0]，那解释的是"不发生DKD"的概率，数值可能是反的
+            shap_values = shap_values_raw[1]
             base_val = explainer.expected_value[1]
         else:
-            base_val = explainer.expected_value
+            # 如果只返回一个 array，通常就是针对 logit 的解释
+            shap_values = shap_values_raw
+            # 处理 expected_value 可能是 list 或 float 的情况
+            if isinstance(explainer.expected_value, list) or isinstance(explainer.expected_value, np.ndarray):
+                base_val = explainer.expected_value[1] if len(explainer.expected_value) > 1 else explainer.expected_value[0]
+            else:
+                base_val = explainer.expected_value
 
-        # 1. Waterfall Plot
-        # st.markdown("**1. Waterfall Plot**")
-        # try:
-        #     fig_waterfall = plt.figure(figsize=(6, 3)) 
-        #     shap_exp = shap.Explanation(
-        #         values=shap_values[0] if len(shap_values.shape) > 1 else shap_values,
-        #         base_values=base_val,
-        #         data=features.values[0],
-        #         feature_names=features.columns.tolist()
-        #     )
-        #     shap.plots.waterfall(shap_exp, max_display=6, show=False)
-            
-        #     # 样式调整
-        #     plt.tick_params(axis='x', labelsize=12)
-        #     plt.tick_params(axis='y', labelsize=12)
-        #     plt.savefig("shap_waterfall_plot.png", bbox_inches='tight')#, dpi=300)
-        #     plt.close(fig_waterfall)
-        #     st.image("shap_waterfall_plot.png", use_column_width=True)
-            
-        # except Exception as e:
-        #     st.error(f"Waterfall plot failed: {str(e)}")
+        # 确保 shap_values 是 1D 数组 (针对单样本)
+        if len(shap_values.shape) > 1:
+            shap_values = shap_values[0]
 
-        # 2. Force Plot
+    except Exception as e:
+        st.error(f"SHAP calculation failed: {str(e)}")
+        shap_values = None
+    # ================= 修改结束 =================
+
+    if shap_values is not None:
+        # Force Plot
         st.markdown("**Force Plot**")
         try:
-            # Force Plot 需要 matplotlib=True
             fig_force = plt.figure()
             shap.plots.force(
                 base_val,
-                shap_values[0] if len(shap_values.shape) > 1 else shap_values,
-                features,
+                shap_values,
+                # 这里为了图表可读性，我们可以传入原始的 features (显示真实数值)，
+                # 但 SHAP 内部计算是基于上面 X_transformed 的结果。
+                features.iloc[0], 
                 matplotlib=True,
-                link="logit",
+                link="logit", # 将 log-odds 转换为概率 (0-1)
                 plot_cmap="viridis",
                 show=False
             )
-            plt.savefig("shap_force_plot.png", bbox_inches='tight')#, dpi=300)
+            plt.savefig("shap_force_plot.png", bbox_inches='tight')
             plt.close(fig_force)
             st.image("shap_force_plot.png", use_column_width=True)
             
         except Exception as e:
             st.error(f"Force plot failed: {str(e)}")
+
+
+    
+    # import os
+    # import joblib
+
+    # # 尝试多种方式获取底层 模型
+    # model_estimator = None
+    # try:
+    #     # 方法 1: 直接加载底层模型文件 (绕过 AutoGluon 包装器)
+    #     # 路径基于目录结构: ./DKD_model_WEB/models/LightGBM_BAG_L1/T3_FULL/S1F1/model.pkl
+    #     direct_model_path = os.path.join("./DKD_model_WEB", "models", "LightGBM_BAG_L1", "T3_FULL", "S1F1", "model.pkl")
+        
+    #     if os.path.exists(direct_model_path):
+    #         loaded_obj = joblib.load(direct_model_path)
+    #         # AutoGluon 的模型包装器通常把真实模型放在 .model 属性中
+    #         if hasattr(loaded_obj, 'model'):
+    #             model_estimator = loaded_obj.model
+    #         else:
+    #             model_estimator = loaded_obj
+
+    #     # 方法 2: 如果文件加载失败，尝试通过 predictor 获取
+    #     if model_estimator is None:
+    #         model_obj = predictor._trainer.load_model(best_model)
+    #         # 检查是否为 Bagged 模型，尝试提取第一个 fold
+    #         if hasattr(model_obj, 'models') and model_obj.models:
+    #             sub_model_name = model_obj.models[0]
+    #             sub_model_obj = predictor._trainer.load_model(sub_model_name)
+    #             if hasattr(sub_model_obj, 'model'):
+    #                 model_estimator = sub_model_obj.model
+    #         # 普通模型
+    #         elif hasattr(model_obj, 'model'):
+    #             model_estimator = model_obj.model
+        
+    #     if model_estimator is None:
+    #          raise ValueError("Could not extract underlying LightGBM booster.")
+
+    #     # 创建解释器
+    #     explainer = shap.TreeExplainer(model_estimator)
+    #     shap_values = explainer.shap_values(features.values)
+        
+    #     # 对于二分类，LightGBM 可能返回列表 [class0, class1] 或 单个数组
+    #     # if isinstance(shap_values, list):
+    #     shap_values = shap_values[0]
+            
+    # except Exception as e:
+    #     st.error(f"SHAP explanation failed: {str(e)}")
+    #     shap_values = None
+
+    # if shap_values is not None:
+    #     # 处理 expected_value
+    #     if isinstance(explainer.expected_value, list):
+    #         base_val = explainer.expected_value[1]
+    #     else:
+    #         base_val = explainer.expected_value
+
+    #     # 1. Waterfall Plot
+    #     # st.markdown("**1. Waterfall Plot**")
+    #     # try:
+    #     #     fig_waterfall = plt.figure(figsize=(6, 3)) 
+    #     #     shap_exp = shap.Explanation(
+    #     #         values=shap_values[0] if len(shap_values.shape) > 1 else shap_values,
+    #     #         base_values=base_val,
+    #     #         data=features.values[0],
+    #     #         feature_names=features.columns.tolist()
+    #     #     )
+    #     #     shap.plots.waterfall(shap_exp, max_display=6, show=False)
+            
+    #     #     # 样式调整
+    #     #     plt.tick_params(axis='x', labelsize=12)
+    #     #     plt.tick_params(axis='y', labelsize=12)
+    #     #     plt.savefig("shap_waterfall_plot.png", bbox_inches='tight')#, dpi=300)
+    #     #     plt.close(fig_waterfall)
+    #     #     st.image("shap_waterfall_plot.png", use_column_width=True)
+            
+    #     # except Exception as e:
+    #     #     st.error(f"Waterfall plot failed: {str(e)}")
+
+    #     # 2. Force Plot
+    #     st.markdown("**Force Plot**")
+    #     try:
+    #         # Force Plot 需要 matplotlib=True
+    #         fig_force = plt.figure()
+    #         shap.plots.force(
+    #             base_val,
+    #             shap_values[0] if len(shap_values.shape) > 1 else shap_values,
+    #             features,
+    #             matplotlib=True,
+    #             link="logit",
+    #             plot_cmap="viridis",
+    #             show=False
+    #         )
+    #         plt.savefig("shap_force_plot.png", bbox_inches='tight')#, dpi=300)
+    #         plt.close(fig_force)
+    #         st.image("shap_force_plot.png", use_column_width=True)
+            
+    #     except Exception as e:
+    #         st.error(f"Force plot failed: {str(e)}")
 
 
