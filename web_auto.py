@@ -140,39 +140,34 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
 
     # 尝试多种方式获取底层 模型
     model_estimator = None
-    try:
-        # 方法 1: 直接加载底层模型文件 (绕过 AutoGluon 包装器)
-        # 路径基于目录结构: ./DKD_model_WEB/models/LightGBM_BAG_L1/T3_FULL/S1F1/model.pkl
-        direct_model_path = os.path.join("./DKD_model_WEB", "models", "LightGBM_BAG_L1", "T3_FULL", "S1F1", "model.pkl")
-        
-        if os.path.exists(direct_model_path):
-            loaded_obj = joblib.load(direct_model_path)
-            # AutoGluon 的模型包装器通常把真实模型放在 .model 属性中
-            if hasattr(loaded_obj, 'model'):
-                model_estimator = loaded_obj.model
-            else:
-                model_estimator = loaded_obj
+    # 方法 1: 直接加载底层模型文件 (绕过 AutoGluon 包装器)
+    # 路径基于目录结构: ./DKD_model_WEB/models/LightGBM_BAG_L1/T3_FULL/S1F1/model.pkl
+    direct_model_path = os.path.join("./DKD_model_WEB", "models", "LightGBM_BAG_L1", "T3_FULL", "S1F1", "model.pkl")
+    
+    if os.path.exists(direct_model_path):
+        loaded_obj = joblib.load(direct_model_path)
+        # AutoGluon 的模型包装器通常把真实模型放在 .model 属性中
+        if hasattr(loaded_obj, 'model'):
+            model_estimator = loaded_obj.model
+        else:
+            model_estimator = loaded_obj
 
-        # # 方法 2: 如果文件加载失败，尝试通过 predictor 获取
-        # if model_estimator is None:
-        #     model_obj = predictor._trainer.load_model(best_model)
-        #     # 检查是否为 Bagged 模型，尝试提取第一个 fold
-        #     if hasattr(model_obj, 'models') and model_obj.models:
-        #         sub_model_name = model_obj.models[0]
-        #         sub_model_obj = predictor._trainer.load_model(sub_model_name)
-        #         if hasattr(sub_model_obj, 'model'):
-        #             model_estimator = sub_model_obj.model
-        #     # 普通模型
-        #     elif hasattr(model_obj, 'model'):
-        #         model_estimator = model_obj.model
-        
-        if model_estimator is None:
-             raise ValueError("Could not extract underlying LightGBM booster.")
+    # # 方法 2: 如果文件加载失败，尝试通过 predictor 获取
+    # if model_estimator is None:
+    #     model_obj = predictor._trainer.load_model(best_model)
+    #     # 检查是否为 Bagged 模型，尝试提取第一个 fold
+    #     if hasattr(model_obj, 'models') and model_obj.models:
+    #         sub_model_name = model_obj.models[0]
+    #         sub_model_obj = predictor._trainer.load_model(sub_model_name)
+    #         if hasattr(sub_model_obj, 'model'):
+    #             model_estimator = sub_model_obj.model
+    #     # 普通模型
+    #     elif hasattr(model_obj, 'model'):
+    #         model_estimator = model_obj.model
 
-        # 创建解释器
-        explainer = shap.TreeExplainer(model_estimator)
-        shap_values = explainer.shap_values(features.values)
-        shap_values = shap_values[0]
+    explainer = shap.TreeExplainer(model_estimator)
+    shap_values = explainer.shap_values(features.values)
+    shap_values = shap_values[0]
 
     
     except Exception as e:
