@@ -65,12 +65,12 @@ VSpace(50)
 st.subheader("Process the input and make a prediction")
 # Process the input and make a prediction
 # 注意：特征顺序需要与训练时一致
-feature_values = [Age, Gender, DM_Duration, Inj_Freq, Glu, HbA1c, Cr, SBP, 
+feature_values = [Age, int(Gender), DM_Duration, int(Inj_Freq), Glu, HbA1c, Cr, SBP, 
                   TC, LDL_C,  ALT, AST, PLT ]
 feature_names = ["Age", "Gender", "DM_Duration", "Inj_Freq", "Glu", "HbA1c", "Cr", 
                  "SBP", "TC", "LDL_C",  "ALT", "AST", "PLT" ]
 features = pd.DataFrame([feature_values], columns=feature_names) 
-print(features.dtypes)
+
 if st.button("Make Prediction"):  # 如果点击了预测按钮
     # Predict the class and probabilities using AutoGluon
     predicted_proba_df = predictor.predict_proba(features, model=best_model)
