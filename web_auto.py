@@ -43,21 +43,21 @@ st.title("Diabetic Kidney Disease (DKD) Risk Predictor")
 # Sidebar for input options
 st.sidebar.header("Input Patient Data")  # 侧边栏输入样本数据
 
-Age = st.sidebar.number_input("Age:", min_value=18, max_value=100, value=60)
+Age = st.sidebar.number_input("Age:", min_value=18, max_value=100, value=70)
 Gender = st.sidebar.selectbox("Gender:", options=list(Gender_options.keys()), format_func=lambda x: Gender_options[x])
-DM_Duration = st.sidebar.number_input("DM Duration (years):", min_value=0.0, max_value=50.0, value=5.0, step=0.5)
+DM_Duration = st.sidebar.number_input("DM Duration (years):", min_value=0.0, max_value=50.0, value=4.0, step=0.5)
 Inj_Freq = st.sidebar.selectbox("Insulin Use Freq (Day):", options=list(Inj_Freq_options.keys()), format_func=lambda x: Inj_Freq_options[x])
 
 st.sidebar.subheader("Laboratory Tests")
-Glu = st.sidebar.number_input("Glucose (Glu, mmol/L):", min_value=0.0, max_value=30.0, value=7.0, step=0.1)
-HbA1c = st.sidebar.number_input("HbA1c (%):", min_value=4.0, max_value=15.0, value=7.0, step=0.1)
-Cr = st.sidebar.number_input("Creatinine (Cr, μmol/L):", min_value=0.0, max_value=500.0, value=80.0, step=1.0)
-SBP = st.sidebar.number_input("Systolic BP (SBP, mmHg):", min_value=80, max_value=220, value=130)
-TC = st.sidebar.number_input("Total Cholesterol (TC, mmol/L):", min_value=0.0, max_value=15.0, value=5.0, step=0.1)
-LDL_C = st.sidebar.number_input("LDL-C (mmol/L):", min_value=0.0, max_value=10.0, value=3.0, step=0.1)
-ALT = st.sidebar.number_input("ALT (U/L):", min_value=0.0, max_value=500.0, value=25.0, step=1.0)
-AST = st.sidebar.number_input("AST (U/L):", min_value=0.0, max_value=500.0, value=25.0, step=1.0)
-PLT = st.sidebar.number_input("Platelet (PLT, 10^9/L):", min_value=0.0, max_value=800.0, value=200.0, step=1.0)
+Glu = st.sidebar.number_input("Glucose (Glu, mmol/L):", min_value=0.0, max_value=30.0, value=4.49, step=0.1)
+HbA1c = st.sidebar.number_input("HbA1c (%):", min_value=4.0, max_value=15.0, value=5.7, step=0.1)
+Cr = st.sidebar.number_input("Creatinine (Cr, μmol/L):", min_value=0.0, max_value=500.0, value=49.1, step=1.0)
+SBP = st.sidebar.number_input("Systolic BP (SBP, mmHg):", min_value=80, max_value=220, value=119)
+TC = st.sidebar.number_input("Total Cholesterol (TC, mmol/L):", min_value=0.0, max_value=15.0, value=3.62, step=0.1)
+LDL_C = st.sidebar.number_input("LDL-C (mmol/L):", min_value=0.0, max_value=10.0, value=3.80, step=0.1)
+ALT = st.sidebar.number_input("ALT (U/L):", min_value=0.0, max_value=500.0, value=27.0, step=1.0)
+AST = st.sidebar.number_input("AST (U/L):", min_value=0.0, max_value=500.0, value=23.0, step=1.0)
+PLT = st.sidebar.number_input("Platelet (PLT, 10^9/L):", min_value=0.0, max_value=800.0, value=237.0, step=1.0)
 
 # 添加一个 50 像素的垂直空白
 VSpace(50)
