@@ -169,11 +169,6 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
     shap_values = explainer.shap_values(features.values)
     shap_values = shap_values[0]
 
-    
-    except Exception as e:
-        st.error(f"SHAP explanation failed: {str(e)}")
-        shap_values = None
-
     if shap_values is not None:
         # 处理 expected_value
         if isinstance(explainer.expected_value, list):
