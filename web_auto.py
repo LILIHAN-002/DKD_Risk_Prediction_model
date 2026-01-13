@@ -22,14 +22,14 @@ best_model = "LightGBM_BAG_L1/T3_FULL"  # 最佳模型名称
 
 # Define the feature options
 Gender_options = {
-    '0': 'Female',  
-    '1': 'Male'  
+    0: 'Female',  
+    1: 'Male'  
 }
 Inj_Freq_options = {
-    '0': 'No Insulin Therapy',
-    '1': '1 injection/day',
-    '2': '2 injections/day',
-    '3': '≥ 3 injections/day' 
+    0: 'No Insulin Therapy',
+    1: '1 injection/day',
+    2: '2 injections/day',
+    3: '≥ 3 injections/day' 
 }
 
 # Streamlit UI
@@ -131,168 +131,93 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
         )  
 
     st.write(advice)  # 显示建议
-    # ... (前面的代码保持不变) ...
-        
+
+
     VSpace(50)
 
-    st.subheader("Feature importance (SHAP Analysis)")
+    st.subheader("Feature importance")
+    import os
+    import joblib
 
-    # ================= 核心修改部分开始 =================
-    try:
-        # 1. 关键步骤：将用户输入的原始数据转换为模型所需的格式
-        # 这一步会将 'Male'/'Female' 转为 0/1，处理归一化等，确保模型能读懂
-        X_transformed = predictor.transform_features(features, model=best_model)
-        
-        # 2. 获取底层模型用于 SHAP 分析
-        # 我们需要从 AutoGluon 的 Bagged 模型中提取一个具体的 Base 模型 (例如 Fold 1)
-        # 这样做比 joblib.load 路径更通用
-        model_obj = predictor._trainer.load_model(best_model)
-        
-        # 检查是否为 Bagged (集成) 模型，如果是，取第一个子模型 (Fold 1)
-        # 因为 SHAP 解释集成模型比较慢，解释其中一个具有代表性的子模型通常足够用于实时展示
-        if hasattr(model_obj, 'models') and model_obj.models:
-            sub_model_name = model_obj.models[0] # 获取第一个子模型的名字
-            sub_model_obj = predictor._trainer.load_model(sub_model_name)
-            model_estimator = sub_model_obj.model # 获取底层的 LightGBM Booster
-        else:
-            model_estimator = model_obj.model # 如果不是集成模型，直接获取
-
-        # 3. 计算 SHAP 值
-        # 注意：这里必须传入 X_transformed (处理后的数据)，而不是原始的 features
-        explainer = shap.TreeExplainer(model_estimator)
-        shap_values = explainer.shap_values(X_transformed)
-
-        # 4. 处理 SHAP 值的维度问题 (LightGBM 二分类通常返回列表 [class0, class1] 或 单个数组)
-        # 我们关注 Class 1 (DKD 发生) 的风险
-        if isinstance(shap_values, list):
-            # 如果是列表，通常 index 1 代表正类 (DKD)
-            shap_values_target = shap_values[1]
-            base_value_target = explainer.expected_value[1]
-        else:
-            # 如果只有一个数组，通常就是针对正类的 Log-odds
-            shap_values_target = shap_values
-            # expected_value 可能也是单个值或列表
-            if isinstance(explainer.expected_value, list):
-                 base_value_target = explainer.expected_value[1] # 防御性编程
-            else:
-                 base_value_target = explainer.expected_value
-
-        # 5. 绘制 Force Plot
-        st.markdown("**Force Plot Explanation**")
-        st.caption("Red bars push the risk HIGHER, Blue bars push the risk LOWER.")
-        
-        # 创建 matplotlib图像
-        fig_force = plt.figure(figsize=(20, 3)) # 增加宽度确保显示清晰
-        
-        # 注意：虽然计算用了 X_transformed，但展示时我们希望显示原始特征值(features)以便用户理解
-        # shap.plots.force 支持传入 display_features
-        shap.plots.force(
-            base_value_target,
-            shap_values_target[0], # 取第一行（也是唯一一行）
-            X_transformed.iloc[0], #用于计算的数值特征
-            matplotlib=True,
-            link="logit", # 如果模型输出是 log-odds，这将其转换为概率
-            feature_names=features.columns.tolist(), # 显示特征名称
-            out_names=["DKD Risk"],
-            show=False
-        )
-        
-        # 保存并显示
-        plt.savefig("shap_force_plot.png", bbox_inches='tight', dpi=150)
-        plt.close(fig_force)
-        st.image("shap_force_plot.png", use_container_width=True)
-
-    except Exception as e:
-        st.error(f"An error occurred during SHAP analysis: {e}")
-        # 打印详细错误方便调试
-        import traceback
-        st.text(traceback.format_exc())
-
-    # VSpace(50)
-
-    # st.subheader("Feature importance")
-    # import os
-    # import joblib
-
-    # # 尝试多种方式获取底层 模型
-    # model_estimator = None
-    # # 方法 1: 直接加载底层模型文件 (绕过 AutoGluon 包装器)
-    # # 路径基于目录结构: ./DKD_model_WEB/models/LightGBM_BAG_L1/T3_FULL/S1F1/model.pkl
-    # direct_model_path = os.path.join("./DKD_model_WEB", "models", "LightGBM_BAG_L1", "T3_FULL", "S1F1", "model.pkl")
+    # 尝试多种方式获取底层 模型
+    model_estimator = None
+    # 方法 1: 直接加载底层模型文件 (绕过 AutoGluon 包装器)
+    # 路径基于目录结构: ./DKD_model_WEB/models/LightGBM_BAG_L1/T3_FULL/S1F1/model.pkl
+    direct_model_path = os.path.join("./DKD_model_WEB", "models", "LightGBM_BAG_L1", "T3_FULL", "S1F1", "model.pkl")
     
-    # if os.path.exists(direct_model_path):
-    #     loaded_obj = joblib.load(direct_model_path)
-    #     # AutoGluon 的模型包装器通常把真实模型放在 .model 属性中
-    #     if hasattr(loaded_obj, 'model'):
-    #         model_estimator = loaded_obj.model
-    #     else:
-    #         model_estimator = loaded_obj
+    if os.path.exists(direct_model_path):
+        loaded_obj = joblib.load(direct_model_path)
+        # AutoGluon 的模型包装器通常把真实模型放在 .model 属性中
+        if hasattr(loaded_obj, 'model'):
+            model_estimator = loaded_obj.model
+        else:
+            model_estimator = loaded_obj
 
-    # # # 方法 2: 如果文件加载失败，尝试通过 predictor 获取
-    # # if model_estimator is None:
-    # #     model_obj = predictor._trainer.load_model(best_model)
-    # #     # 检查是否为 Bagged 模型，尝试提取第一个 fold
-    # #     if hasattr(model_obj, 'models') and model_obj.models:
-    # #         sub_model_name = model_obj.models[0]
-    # #         sub_model_obj = predictor._trainer.load_model(sub_model_name)
-    # #         if hasattr(sub_model_obj, 'model'):
-    # #             model_estimator = sub_model_obj.model
-    # #     # 普通模型
-    # #     elif hasattr(model_obj, 'model'):
-    # #         model_estimator = model_obj.model
+    # # 方法 2: 如果文件加载失败，尝试通过 predictor 获取
+    # if model_estimator is None:
+    #     model_obj = predictor._trainer.load_model(best_model)
+    #     # 检查是否为 Bagged 模型，尝试提取第一个 fold
+    #     if hasattr(model_obj, 'models') and model_obj.models:
+    #         sub_model_name = model_obj.models[0]
+    #         sub_model_obj = predictor._trainer.load_model(sub_model_name)
+    #         if hasattr(sub_model_obj, 'model'):
+    #             model_estimator = sub_model_obj.model
+    #     # 普通模型
+    #     elif hasattr(model_obj, 'model'):
+    #         model_estimator = model_obj.model
 
-    # explainer = shap.TreeExplainer(model_estimator)
-    # shap_values = explainer.shap_values(features.values)
-    # shap_values = shap_values[0]
+    explainer = shap.TreeExplainer(model_estimator)
+    shap_values = explainer.shap_values(features.values)
+    shap_values = shap_values[0]
 
-    # if shap_values is not None:
-    #     # 处理 expected_value
-    #     if isinstance(explainer.expected_value, list):
-    #         base_val = explainer.expected_value[1]
-    #     else:
-    #         base_val = explainer.expected_value
+    if shap_values is not None:
+        # 处理 expected_value
+        if isinstance(explainer.expected_value, list):
+            base_val = explainer.expected_value[1]
+        else:
+            base_val = explainer.expected_value
 
-    #     # 1. Waterfall Plot
-    #     # st.markdown("**1. Waterfall Plot**")
-    #     # try:
-    #     #     fig_waterfall = plt.figure(figsize=(6, 3)) 
-    #     #     shap_exp = shap.Explanation(
-    #     #         values=shap_values[0] if len(shap_values.shape) > 1 else shap_values,
-    #     #         base_values=base_val,
-    #     #         data=features.values[0],
-    #     #         feature_names=features.columns.tolist()
-    #     #     )
-    #     #     shap.plots.waterfall(shap_exp, max_display=6, show=False)
+        # 1. Waterfall Plot
+        # st.markdown("**1. Waterfall Plot**")
+        # try:
+        #     fig_waterfall = plt.figure(figsize=(6, 3)) 
+        #     shap_exp = shap.Explanation(
+        #         values=shap_values[0] if len(shap_values.shape) > 1 else shap_values,
+        #         base_values=base_val,
+        #         data=features.values[0],
+        #         feature_names=features.columns.tolist()
+        #     )
+        #     shap.plots.waterfall(shap_exp, max_display=6, show=False)
             
-    #     #     # 样式调整
-    #     #     plt.tick_params(axis='x', labelsize=12)
-    #     #     plt.tick_params(axis='y', labelsize=12)
-    #     #     plt.savefig("shap_waterfall_plot.png", bbox_inches='tight')#, dpi=300)
-    #     #     plt.close(fig_waterfall)
-    #     #     st.image("shap_waterfall_plot.png", use_column_width=True)
+        #     # 样式调整
+        #     plt.tick_params(axis='x', labelsize=12)
+        #     plt.tick_params(axis='y', labelsize=12)
+        #     plt.savefig("shap_waterfall_plot.png", bbox_inches='tight')#, dpi=300)
+        #     plt.close(fig_waterfall)
+        #     st.image("shap_waterfall_plot.png", use_column_width=True)
             
-    #     # except Exception as e:
-    #     #     st.error(f"Waterfall plot failed: {str(e)}")
+        # except Exception as e:
+        #     st.error(f"Waterfall plot failed: {str(e)}")
 
-    #     # 2. Force Plot
-    #     st.markdown("**Force Plot**")
-    #     try:
-    #         # Force Plot 需要 matplotlib=True
-    #         fig_force = plt.figure()
-    #         shap.plots.force(
-    #             base_val,
-    #             shap_values[0] if len(shap_values.shape) > 1 else shap_values,
-    #             features,
-    #             matplotlib=True,
-    #             link="logit",
-    #             plot_cmap="viridis",
-    #             show=False
-    #         )
-    #         plt.savefig("shap_force_plot.png", bbox_inches='tight')#, dpi=300)
-    #         plt.close(fig_force)
-    #         st.image("shap_force_plot.png", use_column_width=True)
+        # 2. Force Plot
+        st.markdown("**Force Plot**")
+        try:
+            # Force Plot 需要 matplotlib=True
+            fig_force = plt.figure()
+            shap.plots.force(
+                base_val,
+                shap_values[0] if len(shap_values.shape) > 1 else shap_values,
+                features,
+                matplotlib=True,
+                link="logit",
+                plot_cmap="viridis",
+                show=False
+            )
+            plt.savefig("shap_force_plot.png", bbox_inches='tight')#, dpi=300)
+            plt.close(fig_force)
+            st.image("shap_force_plot.png", use_column_width=True)
             
-    #     except Exception as e:
-    #         st.error(f"Force plot failed: {str(e)}")
+        except Exception as e:
+            st.error(f"Force plot failed: {str(e)}")
 
 
