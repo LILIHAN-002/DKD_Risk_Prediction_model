@@ -165,9 +165,10 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
     #     # 普通模型
     #     elif hasattr(model_obj, 'model'):
     #         model_estimator = model_obj.model
-
+    
+    X_transformed = predictor.transform_features(features, model=best_model)
     explainer = shap.TreeExplainer(model_estimator)
-    shap_values = explainer.shap_values(features.values)
+    shap_values = explainer.shap_values(X_transformed)#features.values)
     shap_values = shap_values[1]
 
     if shap_values is not None:
