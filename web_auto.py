@@ -168,7 +168,7 @@ if st.button("Make Prediction"):  # 如果点击了预测按钮
 
     explainer = shap.TreeExplainer(model_estimator)
     shap_values = explainer.shap_values(features.values)
-    shap_values = shap_values[0]
+    shap_values = shap_values[1]
 
     if shap_values is not None:
         # 处理 expected_value
