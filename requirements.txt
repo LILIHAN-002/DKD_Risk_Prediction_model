@@ -4,6 +4,6 @@ shap==0.42.1
 streamlit-shap
 matplotlib
 pillow
-setuptools
+setuptools<70.0.0
 lightgbm
 wheel
