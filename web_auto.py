@@ -1,3 +1,15 @@
+import os
+import subprocess
+import sys
+
+# 检查是否有 pkg_resources，没有则强制安装 setuptools
+try:
+    import pkg_resources
+except ImportError:
+    print("pkg_resources not found. Installing setuptools...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "setuptools"])
+    import pkg_resources
+
 import streamlit as st
 import numpy as np
 import pandas as pd
